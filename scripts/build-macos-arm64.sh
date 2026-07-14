@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build}"
-APP="$BUILD_DIR/output/Terminus Player.app"
+APP="$BUILD_DIR/output/MacJMP.app"
 QTROOT="${QTROOT:-/opt/homebrew/opt/qt@5}"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
@@ -38,7 +38,7 @@ done
 
 # Remove the generated bundle before configuring so deleted resources cannot
 # survive incremental builds and CMake can regenerate bundle metadata.
-cmake -E rm -rf "$BUILD_DIR/src/Terminus Player.app"
+cmake -E rm -rf "$BUILD_DIR/src/MacJMP.app"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -GNinja \
     -DQTROOT="$QTROOT" \
     -DCMAKE_BUILD_TYPE=Release \
@@ -63,7 +63,7 @@ codesign --force --deep --sign - --timestamp=none "$APP"
 python3 "$ROOT_DIR/scripts/verify-macos-arm64.py" "$APP"
 
 ditto -c -k --sequesterRsrc --keepParent \
-    "$APP" "$BUILD_DIR/TerminusPlayer-macos-arm64.zip"
+    "$APP" "$BUILD_DIR/macjmp-macos-arm64.zip"
 
 echo "Native Apple Silicon app: $APP"
-echo "Installable archive: $BUILD_DIR/TerminusPlayer-macos-arm64.zip"
+echo "Installable archive: $BUILD_DIR/macjmp-macos-arm64.zip"

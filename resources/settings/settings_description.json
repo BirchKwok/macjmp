@@ -413,7 +413,7 @@
     "values": [
         {
           "value": "systemname",
-          "default": "JellyfinMediaPlayer",
+          "default": "MacJMP",
           "hidden": true,
           "platforms": [ "oe" ]
         },

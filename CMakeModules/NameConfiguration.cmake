@@ -1,12 +1,4 @@
-set(MAIN_TARGET JellyfinMediaPlayer)
-
-# Name of the output binary, defaults are only used on Linux
-set(MAIN_NAME jellyfinmediaplayer)
-
-if(APPLE)
-  set(MAIN_NAME "Terminus Player")
-elseif(WIN32)
-  set(MAIN_NAME "TerminusPlayer")
-endif(APPLE)
+set(MAIN_TARGET macjmp)
+set(MAIN_NAME "MacJMP")
 
 configure_file(src/shared/Names.cpp.in src/shared/Names.cpp @ONLY)

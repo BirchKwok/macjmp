@@ -11,6 +11,7 @@ vagrant/ubuntu-x86_64/.vagrant
 vagrant/windows-x86_64/.vagrant
 build-*
 !scripts/build-macos-arm64.sh
+!scripts/build-swift-prototype.sh
 cmake-build-*
 *.pyc
 conaninfo.txt
@@ -29,3 +30,5 @@ debian/jellyfin-media-player.substvars
 dist.zip
 obj-x86_64-linux-gnu/
 deployment/dist
+.build/
+swift-native/.build/

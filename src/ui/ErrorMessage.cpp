@@ -15,12 +15,12 @@ ErrorMessage::ErrorMessage(const QString& errorMessage, bool allowResetConfig)
   : QMessageBox(nullptr)
 {
   setIcon(Critical);
-  setText("Terminus Player encountered a fatal error and must exit");
+  setText("MacJMP encountered a fatal error and must exit");
   setDetailedText(errorMessage);
   setInformativeText("Press help below to be redirected to our friendly support forums." \
                      "Press reset to reset configuration to the default and try again." \
                      "Press abort to exit.");
-  setWindowTitle("PMP Fatal Error!");
+  setWindowTitle("MacJMP Fatal Error");
 
   auto exitButton = addButton(Abort);
   auto helpButton = addButton(Help);
@@ -46,5 +46,4 @@ ErrorMessage::ErrorMessage(const QString& errorMessage, bool allowResetConfig)
     }
   });
 }
-
 

@@ -140,7 +140,7 @@ void InputRoku::handleQueryApps(QHttpRequest* request, QHttpResponse* response)
   writer.writeStartElement("apps");
   writer.writeStartElement("app");
   writer.writeAttribute("id", "1");
-  writer.writeCharacters("Terminus Player");
+  writer.writeCharacters("MacJMP");
   writer.writeEndElement(); // app
   writer.writeEndElement(); // apps
   writer.writeEndDocument();

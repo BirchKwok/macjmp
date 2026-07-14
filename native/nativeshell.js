@@ -208,7 +208,7 @@ window.NativeShell = {
 
 function getDeviceProfile() {
     return {
-        'Name': 'Terminus Player',
+        'Name': 'MacJMP',
         'MusicStreamingTranscodingBitrate': 1280000,
         'TimelineOffsetSeconds': 5,
         'TranscodingProfiles': [
@@ -270,7 +270,7 @@ window.NativeShell.AppHost = {
     getDeviceProfile,
     getSyncProfile: getDeviceProfile,
     appName() {
-        return "Terminus Player";
+        return "MacJMP";
     },
     appVersion() {
         return navigator.userAgent.split(" ")[1];
@@ -305,7 +305,7 @@ async function showSettingsModal() {
 
     const title = document.createElement("h3");
     title.className = "formDialogHeaderTitle";
-    title.textContent = "Terminus Player Settings";
+    title.textContent = "MacJMP Settings";
     modalHeader.appendChild(title);
     
     const modalContents = document.createElement("div");

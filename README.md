@@ -1,141 +1,66 @@
-# Terminus Media Player
+# MacJMP
 
-Desktop client using jellyfin-web with embedded MPV player. Supports Windows, Mac OS,
-and Linux. Media plays within the same window using the jellyfin-web interface unlike
-Jellyfin Desktop. Supports audio passthrough. Based on [Plex Media Player](https://github.com/plexinc/plex-media-player).
+MacJMP is a macOS-only Jellyfin desktop player. The current application embeds the Jellyfin web client and uses libmpv for broad codec support, direct play, and audio passthrough.
 
-![Screenshot of Jellyfin Media Player](https://raw.githubusercontent.com/iwalton3/mpv-shim-misc-docs/master/images/jmp-player-win.png)
+This repository is a macOS-focused refactor of Jellyfin Media Player. Windows, Linux, Raspberry Pi, and OpenELEC are no longer supported build targets. CMake rejects non-macOS hosts, and release builds target native Apple Silicon (`arm64`) on macOS 11 or newer.
 
-Downloads:
- - [Windows, Mac, and Linux Releases](https://github.com/jellyfin/jellyfin-media-player/releases)
- - [Flathub (Linux)](https://flathub.org/apps/details/com.github.iwalton3.jellyfin-media-player)
+## Project status
 
-Related Documents:
- - Corresponding web client: [Repo](https://github.com/iwalton3/jellyfin-web-jmp/) [Release](https://github.com/iwalton3/jellyfin-web-jmp/releases/)
- - API Docs in [client-api.md](https://github.com/iwalton3/jellyfin-media-player/blob/master/client-api.md)
- - Tip: For help building, look at the GitHub Actions file!
+Two implementations live in this repository:
 
-## Building at a glance (Linux)
+- **MacJMP (Qt/libmpv):** the usable player and current release path.
+- **MacJMP Swift Prototype:** an AppKit/WebKit experiment that establishes a native Swift application shell while libmpv and the native-shell API are migrated incrementally.
 
-```bash
-sudo apt install autoconf automake libtool libharfbuzz-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxrandr-dev libvdpau-dev libva-dev mesa-common-dev libegl1-mesa-dev yasm libasound2-dev libpulse-dev libuchardet-dev zlib1g-dev libfribidi-dev git libgnutls28-dev libgl1-mesa-dev libsdl2-dev cmake wget python g++ qtwebengine5-dev qtquickcontrols2-5-dev libqt5x11extras5-dev libcec-dev qml-module-qtquick-controls qml-module-qtwebengine qml-module-qtwebchannel qtbase5-private-dev
-mkdir jmp; cd jmp
-git clone https://github.com/mpv-player/mpv-build.git
-cd mpv-build
-echo --enable-libmpv-shared > mpv_options
-echo --disable-cplayer >> mpv_options
-./rebuild -j4
-sudo ./install
-sudo ldconfig
-cd ~/jmp/
-git clone git://github.com/iwalton3/jellyfin-media-player
-cd jellyfin-media-player
-./download_webclient.sh
-cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr/local/ ..
-make -j4
-sudo make install
-rm -rf ~/jmp/
-```
+The Swift prototype is intentionally labelled as experimental. It can connect to a Jellyfin server and exercise the native app lifecycle, but it does not yet match the Qt/libmpv player's playback capabilities. See [the Swift migration plan](docs/SWIFT_MIGRATION.md).
 
-## Building for Windows
+## Requirements
 
-Please install:
- - [cmake](https://cmake.org/download/) - cmake-3.20.0-windows-x86_64.msi
-   - Add cmake to the path.
- - [ninja](https://github.com/ninja-build/ninja/releases)
-   - Place this in the build directory.
- - [QT](https://www.qt.io/download-thank-you?hsLang=en)
-   - This package is huge. You also need to make a QT account...
-   - Check "MSVC 2019 64-bit" and "Qt WebEngine" under QT 5.15.2.
- - [VS2019 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019)
-   - Again this will use a lot of disk space. The installer is small though.
- - [libmpv1](https://sourceforge.net/projects/mpv-player-windows/files/libmpv/)
-   - Place the contents in the build directory, in a subfolder called `mpv`.
-   - Move the contents of the `include` folder to an `mpv` folder inside the `include` folder.
-   - Move the `mpv-1.dll` to `mpv.dll`.
- - [WIX](https://wixtoolset.org/releases/v3.11.2/stable)
+- Apple Silicon Mac running macOS 11 or newer for the Qt/libmpv app
+- CMake, Ninja, Python 3, and pkg-config
+- arm64 Qt 5.15 with Qt WebEngine
+- Homebrew `mpv` and `sdl3`
 
-You need to run these commands in git bash.
+Install the non-Qt dependencies with:
 
 ```bash
-git clone https://github.com/iwalton3/jellyfin-media-player
-cd jellyfin-media-player
-./download_webclient.sh
-cd build
+brew install cmake ninja mpv sdl3 pkgconf
 ```
 
-Open the "x86_x64 Cross Tools Command Prompt for VS 2019". `cd` to the `build` directory. Run:
+Homebrew's current Qt 5 formula may not contain Qt WebEngine. Point `QTROOT` at an arm64 Qt 5.15 installation that includes it.
 
-```
-set PATH=%PATH%;C:\Program Files (x86)\WiX Toolset v3.11\bin
-cmake -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=output -DCMAKE_MAKE_PROGRAM=ninja.exe -DQTROOT=C:/Qt/5.15.2/msvc2019_64 -DMPV_INCLUDE_DIR=mpv/include -DMPV_LIBRARY=mpv/mpv.dll -DCMAKE_INSTALL_PREFIX=output ..
-lib /def:mpv\mpv.def /out:mpv\mpv.dll.lib /MACHINE:X64
-ninja
-ninja windows_package
-```
-
-## Building for macOS (Apple Silicon)
-
-The macOS build is native Apple Silicon only. The build rejects Intel/Rosetta hosts,
-Intel Qt installations, universal binaries, and x86_64 dependencies.
-
-Install an arm64 Qt 5 build that includes Qt WebEngine, plus the native build
-dependencies. Homebrew's current Qt 5 package may not include Qt WebEngine, so an
-existing arm64 Qt 5.15 installation can be selected with `QTROOT`.
+## Build the current player
 
 ```bash
-brew install mpv ninja pkgconf
 QTROOT=/path/to/arm64/Qt/5.15 ./scripts/build-macos-arm64.sh
 ```
 
-When Qt 5 is installed at `/opt/homebrew/opt/qt@5`, `QTROOT` can be omitted. The
-script downloads the web client, builds with `CMAKE_OSX_ARCHITECTURES=arm64`,
-bundles all non-system libraries, ad-hoc signs the application, verifies every
-Mach-O file is pure arm64, and creates:
+If the complete Qt installation is available at `/opt/homebrew/opt/qt@5`, `QTROOT` can be omitted. The script downloads the bundled web client, builds and bundles dependencies, ad-hoc signs the result, verifies that every Mach-O file is arm64, and creates:
 
 ```text
-build/output/Terminus Player.app
-build/TerminusPlayer-macos-arm64.zip
+build/output/MacJMP.app
+build/macjmp-macos-arm64.zip
 ```
 
-Copy `Terminus Player.app` to `/Applications` to install it. No Rosetta or Finder
-compatibility setting is used.
+## Build the Swift prototype
 
-## Log File Location
+The prototype requires Swift 5.10 or newer and has no third-party package dependencies.
 
- - Windows: `%LOCALAPPDATA%\JellyfinMediaPlayer\logs`
- - Linux: `~/.local/share/jellyfinmediaplayer/logs/`
- - Linux (Flatpak): `~/.var/app/com.github.iwalton3.jellyfin-media-player/data/jellyfinmediaplayer/logs/`
- - macOS: `~/Library/Logs/Jellyfin Media Player/`
+```bash
+./scripts/build-swift-prototype.sh
+```
 
-## Config File Location
+The result is `build/swift-prototype/MacJMP Swift Prototype.app`. On first launch, enter the complete HTTP or HTTPS address of a Jellyfin server. You can also pass the address to the executable as its first argument.
 
-The main configuration file is called `jellyfinmediaplayer.conf`. You can also add a `mpv.conf` to configure MPV directly.
+## Data locations
 
- - Windows: `%LOCALAPPDATA%\JellyfinMediaPlayer\`
- - Linux: `~/.local/share/jellyfinmediaplayer/`
- - Linux (Flatpak): `~/.var/app/com.github.iwalton3.jellyfin-media-player/data/jellyfinmediaplayer/`
- - macOS: `~/Library/Application Support/Jellyfin Media Player/`
+- Settings: `~/Library/Application Support/MacJMP/macjmp.conf`
+- Logs: `~/Library/Logs/MacJMP/MacJMP.log`
+- Optional mpv configuration: `~/Library/Application Support/MacJMP/mpv.conf`
 
-## Web Debugger
+## Web debugger
 
-To get browser devtools, use remote debugging.
+Start the Qt/libmpv application with `--remote-debugging-port=9222`, then inspect it from Chromium or Chrome at `chrome://inspect/#devices`.
 
- - Run the application with the command argument `--remote-debugging-port=9222`.
- - Open Chromium or Google Chrome.
- - Navigate to `chrome://inspect/#devices`.
- - You can now access the developer tools.
+## Lineage and license
 
-If you have problems:
-
- - Make sure "Discover Network Targets" is checked.
- - Make sure `localhost:9222` is in the list under "Configure...".
- - Make sure `--remote-debugging-port=9222` is specified correctly.
-
-## License
-
-Terminus Media Player is based on Jellyfin Media Player.
-Jellyfin Media Player is licensed under GPL v2. See the ``LICENSE`` file.
-Licenses of dependencies are summarized under ``resources/misc/licenses.txt``.
-This file can also be printed at runtime when using the ``--licenses`` option.
+MacJMP is derived from Jellyfin Media Player and Plex Media Player. It remains licensed under GPL v2; see [LICENSE](LICENSE). Third-party dependency notices are in `resources/misc/licenses.txt`.

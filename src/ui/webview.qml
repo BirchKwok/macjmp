@@ -8,7 +8,7 @@ import QtQuick.Controls 1.4
 KonvergoWindow
 {
   id: mainWindow
-  title: "Terminus Player"
+  title: "MacJMP"
   objectName: "mainWindow"
   minimumHeight: windowMinSize.height
   minimumWidth: windowMinSize.width
@@ -16,7 +16,7 @@ KonvergoWindow
   WebEngineProfile
   {
     id: webProfile
-    storageName: "TerminusPlayer"
+    storageName: "MacJMP"
     offTheRecord: false
     httpUserAgent: components.system.getUserAgent()
     httpCacheType: WebEngineProfile.DiskHttpCache

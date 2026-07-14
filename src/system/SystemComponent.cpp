@@ -231,7 +231,7 @@ void SystemComponent::setCursorVisibility(bool visible)
 QString SystemComponent::getUserAgent()
 {
   QString osVersion = QSysInfo::productVersion();
-  QString userAgent = QString("JellyfinMediaPlayer %1 (%2-%3 %4)").arg(Version::GetVersionString()).arg(getPlatformTypeString()).arg(getPlatformArchString()).arg(osVersion);
+  QString userAgent = QString("MacJMP %1 (%2-%3 %4)").arg(Version::GetVersionString()).arg(getPlatformTypeString()).arg(getPlatformArchString()).arg(osVersion);
   return userAgent;
 }
 
@@ -241,7 +241,7 @@ QString SystemComponent::debugInformation()
   QString debugInfo;
   QTextStream stream(&debugInfo);
 
-  stream << "Terminus Player\n";
+  stream << "MacJMP\n";
   stream << "  Version: " << Version::GetVersionString() << " built: " << Version::GetBuildDate() << "\n";
   stream << "  Web Client Version: " << Version::GetWebVersion() << "\n";
   stream << "  Web Client URL: " << SettingsComponent::Get().value(SETTINGS_SECTION_PATH, "startupurl").toString() << "\n";

@@ -201,14 +201,14 @@ static void writeJson(const QString& filename, const QJsonObject& data, bool pre
 /////////////////////////////////////////////////////////////////////////////////////////
 QVariant SettingsComponent::readPreinitValue(const QString& sectionID, const QString& key)
 {
-  QJsonObject json = loadJson(Paths::dataDir("jellyfinmediaplayer.conf"));
+  QJsonObject json = loadJson(Paths::dataDir("macjmp.conf"));
   return json["sections"].toObject()[sectionID].toObject()[key].toVariant();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
 void SettingsComponent::load()
 {
-  loadConf(Paths::dataDir("jellyfinmediaplayer.conf"), false);
+  loadConf(Paths::dataDir("macjmp.conf"), false);
   loadConf(Paths::dataDir("storage.json"), true);
 }
 
@@ -303,7 +303,7 @@ void SettingsComponent::saveSettings()
   QJsonObject json;
   json.insert("sections", QJsonValue::fromVariant(sections));
   json.insert("version", m_settingsVersion);
-  writeJson(Paths::dataDir("jellyfinmediaplayer.conf"), json);
+  writeJson(Paths::dataDir("macjmp.conf"), json);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -715,7 +715,7 @@ void SettingsComponent::setupVersion()
     // Version key was not present. It could still be a pre-1.1 PMP install,
     // so here we try to find out whether this is the very first install, or
     // if an older one exists.
-    QFile configFile(Paths::dataDir("jellyfinmediaplayer.conf"));
+    QFile configFile(Paths::dataDir("macjmp.conf"));
     if (configFile.exists())
       m_oldestPreviousVersion = "legacy";
     else
@@ -727,8 +727,8 @@ void SettingsComponent::setupVersion()
 /////////////////////////////////////////////////////////////////////////////////////////
 bool SettingsComponent::resetAndSaveOldConfiguration()
 {
-  QFile settingsFile(Paths::dataDir("jellyfinmediaplayer.conf"));
-  return settingsFile.rename(Paths::dataDir("jellyfinmediaplayer.conf.old"));
+  QFile settingsFile(Paths::dataDir("macjmp.conf"));
+  return settingsFile.rename(Paths::dataDir("macjmp.conf.old"));
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -772,7 +772,7 @@ QString SettingsComponent::getClientName()
   QString name;
   name = SettingsComponent::Get().value(SETTINGS_SECTION_SYSTEM, "systemname").toString();
 
-  if (name.compare("JellyfinMediaPlayer") == 0) {
+  if (name.compare("MacJMP") == 0) {
     name = Utils::ComputerName();
   }
 

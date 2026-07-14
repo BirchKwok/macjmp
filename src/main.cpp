@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 #endif
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("Terminus Player");
+    parser.setApplicationDescription("MacJMP");
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOptions({{{"l", "licenses"},         "Show license information"},
@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
     int newArgc = argc + g_qtFlags.size();
 
     QApplication app(newArgc, newArgv);
-    app.setApplicationName("Terminus Player");
+    app.setApplicationName("MacJMP");
 
 #if defined(Q_OS_WIN) 
     // Setting window icon on OSX will break user ability to change it

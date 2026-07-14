@@ -77,58 +77,34 @@ list(APPEND RESOURCE_FILES qrc_resources.cpp)
 
 set(MACOSX_BUNDLE_ICON_FILE jellyfin.icns)
 set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${VERSION_STRING})
-set(MACOSX_BUNDLE_BUNDLE_NAME "Terminus Player")
+set(MACOSX_BUNDLE_BUNDLE_NAME "MacJMP")
 set(MACOSX_BUNDLE_BUNDLE_VERSION ${VERSION_STRING})
-set(MACOSX_BUNDLE_GUI_IDENTIFIER tv.terminus.player)
+set(MACOSX_BUNDLE_GUI_IDENTIFIER com.birchkwok.macjmp)
 
-if(APPLE)
-  set_source_files_properties(
-    input/apple/HIDRemote/HIDRemote.m
-    PROPERTIES COMPILE_FLAGS -fno-objc-arc
-  )
+set_source_files_properties(
+  input/apple/HIDRemote/HIDRemote.m
+  PROPERTIES COMPILE_FLAGS -fno-objc-arc
+)
 
-  # copy the qt.conf so that when running PMP from a debugger it finds the plugins and QML files
-  if(EXISTS ${QTROOT}/bin/qt.conf)
-    add_resources(TARGET ${MAIN_TARGET} SOURCES ${QTROOT}/bin/qt.conf DEST ${INSTALL_RESOURCE_DIR})
-  endif()
-
-
-  set(ICON_FILE ${CMAKE_SOURCE_DIR}/bundle/osx/${MACOSX_BUNDLE_ICON_FILE})
-  list(APPEND RESOURCE_FILES ${ICON_FILE})
-  set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+# Copy qt.conf so debugger launches can find plugins and QML files.
+if(EXISTS ${QTROOT}/bin/qt.conf)
+  add_resources(TARGET ${MAIN_TARGET} SOURCES ${QTROOT}/bin/qt.conf DEST ${INSTALL_RESOURCE_DIR})
 endif()
 
-if(WIN32)
-  list(APPEND RESOURCE_FILES ${CMAKE_SOURCE_DIR}/bundle/win/iconres.rc)
-endif()
+set(ICON_FILE ${CMAKE_SOURCE_DIR}/bundle/osx/${MACOSX_BUNDLE_ICON_FILE})
+list(APPEND RESOURCE_FILES ${ICON_FILE})
+set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
-set(RESOURCE_ROOT .)
-if(APPLE)
-  set(RESOURCE_ROOT Resources)
-  add_resources(TARGET ${MAIN_TARGET} SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../dist/ DEST ${RESOURCE_ROOT}/web-client/desktop)
-  add_resources(TARGET ${MAIN_TARGET} SOURCES ${CMAKE_SOURCE_DIR}/native/ DEST ${RESOURCE_ROOT}/web-client/extension)
-endif()
-
-if(NOT APPLE)
-  set(rsrc_locations
-    ${QTROOT}/resources
-    /usr/share/qt/resources
-  )
-  foreach(loc ${rsrc_locations})
-    if(EXISTS ${loc}/qtwebengine_devtools_resources.pak)
-      install(FILES ${loc}/qtwebengine_devtools_resources.pak DESTINATION resources)
-    endif()
-  endforeach()
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../dist/ DESTINATION ${INSTALL_RESOURCE_DIR}/web-client/desktop)
-  install(DIRECTORY ${CMAKE_SOURCE_DIR}/native/ DESTINATION ${INSTALL_RESOURCE_DIR}/web-client/extension)
-endif()
+set(RESOURCE_ROOT Resources)
+add_resources(TARGET ${MAIN_TARGET} SOURCES ${CMAKE_CURRENT_BINARY_DIR}/../dist/ DEST ${RESOURCE_ROOT}/web-client/desktop)
+add_resources(TARGET ${MAIN_TARGET} SOURCES ${CMAKE_SOURCE_DIR}/native/ DEST ${RESOURCE_ROOT}/web-client/extension)
 
 if(XCODE)
   get_resources_source_list(${MAIN_TARGET} XCODE_RESOURCES)
 endif()
 
 get_property(BUNDLED_FILES GLOBAL PROPERTY CONFIG_BUNDLED_FILES)
-add_executable(${MAIN_TARGET} WIN32 MACOSX_BUNDLE ${SOURCES} ${BUNDLED_FILES} ${RESOURCE_FILES} ${XCODE_RESOURCES})
+add_executable(${MAIN_TARGET} MACOSX_BUNDLE ${SOURCES} ${BUNDLED_FILES} ${RESOURCE_FILES} ${XCODE_RESOURCES})
 std_target_properties(${MAIN_TARGET})
 set_target_properties(${MAIN_TARGET} PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/bundle/osx/Info.plist.in
@@ -139,16 +115,7 @@ copy_resources(${MAIN_TARGET})
 clang_tidy(${MAIN_TARGET})
 
 find_library(MINIZIP_LIBRARY minizip)
-if(WIN32)
-  # FindZLIB doesn't find this. (It might be possible to fix the minizip build
-  # to not require this.)
-  find_library(ZLIB_LIBRARIES zlibwapi)
-  if(ZLIB_LIBRARIES)
-    set(ZLIB_FOUND on)
-  endif()
-else()
-  include(FindZLIB)
-endif()
+include(FindZLIB)
 
 if(ZLIB_FOUND AND MINIZIP_LIBRARY)
   message(STATUS "Using minizip")
@@ -173,11 +140,8 @@ target_link_libraries(${MAIN_TARGET}
   ${QT5_LIBRARIES}
   ${OS_LIBS}
   ${EXTRA_LIBS}
-  ${X11_LIBRARIES}
-  ${X11_Xrandr_LIB}
   ${ICU_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
-  ${RPI_LIBS}
   ${MINIZIP_LIBS}
 )
 
