@@ -29,7 +29,7 @@ def install_libraries(binary):
     if line.find("dylib") != -1 and (line.startswith('@executable_path') or line.find("libQt5") != -1):
       file = line.split('/')[-1].split(' ')[0]
       if line.startswith("@executable_path"):
-        src = os.path.join(sys.argv[1], "dependencies/darwin-x86_64/lib", file)
+        src = os.path.join(sys.argv[1], "dependencies/darwin-arm64/lib", file)
       else:
         src = line.split(" (")[0]
 

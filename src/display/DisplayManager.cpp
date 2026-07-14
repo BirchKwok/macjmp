@@ -23,11 +23,11 @@ bool DisplayManager::initialize()
   for(int displayid : m_displays.keys())
   {
     DMDisplayPtr display = m_displays[displayid];
-    QLOG_INFO() << QString("Available modes for Display #%1 (%2)").arg(displayid).arg(display->m_name);
+    QLOG_DEBUG() << QString("Available modes for Display #%1 (%2)").arg(displayid).arg(display->m_name);
     for (int modeid = 0; modeid < display->m_videoModes.size(); modeid++)
     {
       DMVideoModePtr mode = display->m_videoModes[modeid];
-      QLOG_INFO() << QString("Mode %1: %2").arg(modeid, 2).arg(mode->getPrettyName());
+      QLOG_DEBUG() << QString("Mode %1: %2").arg(modeid, 2).arg(mode->getPrettyName());
     }
   }
 

@@ -75,25 +75,32 @@ ninja
 ninja windows_package
 ```
 
-## Building for MacOS
+## Building for macOS (Apple Silicon)
 
-Install [QT 5.15.2](https://www.qt.io/download-thank-you?hsLang=en), remember to check `Qt WebEngine`.
+The macOS build is native Apple Silicon only. The build rejects Intel/Rosetta hosts,
+Intel Qt installations, universal binaries, and x86_64 dependencies.
 
-Then run the following commands (replace <QT_DIR> with your QT installation location):
-
-```bash
-brew install mpv ninja
-./download_webclient.sh
-cd build
-cmake -GNinja -DQTROOT=<QT_DIR> -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=output ..
-ninja install
-```
-
-To create redistributable bundle, some library paths need to be fixed. At the project root directory, run:
+Install an arm64 Qt 5 build that includes Qt WebEngine, plus the native build
+dependencies. Homebrew's current Qt 5 package may not include Qt WebEngine, so an
+existing arm64 Qt 5.15 installation can be selected with `QTROOT`.
 
 ```bash
-python3 ./scripts/fix-install-names.py ./build/output/Jellyfin\ Media\ Player.app
+brew install mpv ninja pkgconf
+QTROOT=/path/to/arm64/Qt/5.15 ./scripts/build-macos-arm64.sh
 ```
+
+When Qt 5 is installed at `/opt/homebrew/opt/qt@5`, `QTROOT` can be omitted. The
+script downloads the web client, builds with `CMAKE_OSX_ARCHITECTURES=arm64`,
+bundles all non-system libraries, ad-hoc signs the application, verifies every
+Mach-O file is pure arm64, and creates:
+
+```text
+build/output/Terminus Player.app
+build/TerminusPlayer-macos-arm64.zip
+```
+
+Copy `Terminus Player.app` to `/Applications` to install it. No Rosetta or Finder
+compatibility setting is used.
 
 ## Log File Location
 

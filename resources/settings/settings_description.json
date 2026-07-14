@@ -64,7 +64,7 @@
       },
       {
         "value": "logLevel",
-        "default": "debug",
+        "default": "info",
         "hidden": true,
         "possible_values": [
           [ "trace", "trace" ],
@@ -115,10 +115,6 @@
         "value": "sdlEnabled",
         "default": true,
         "hidden": true
-      },
-      {
-        "value": "checkForUpdates",
-        "default": true
       },
       {
         "value": "enableInputRepeat",

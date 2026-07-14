@@ -1,6 +1,6 @@
 import QtQuick 2.4
 import Konvergo 1.0
-import QtWebEngine 1.1
+import QtWebEngine 1.9
 import QtWebChannel 1.0
 import QtQuick.Window 2.2
 import QtQuick.Controls 1.4
@@ -12,6 +12,17 @@ KonvergoWindow
   objectName: "mainWindow"
   minimumHeight: windowMinSize.height
   minimumWidth: windowMinSize.width
+
+  WebEngineProfile
+  {
+    id: webProfile
+    storageName: "TerminusPlayer"
+    offTheRecord: false
+    httpUserAgent: components.system.getUserAgent()
+    httpCacheType: WebEngineProfile.DiskHttpCache
+    httpCacheMaximumSize: 268435456
+    persistentCookiesPolicy: WebEngineProfile.ForcePersistentCookies
+  }
 
   function runWebAction(action)
   {
@@ -143,9 +154,13 @@ KonvergoWindow
   {
     id: web
     objectName: "web"
+    profile: webProfile
     settings.errorPageEnabled: false
     settings.localContentCanAccessRemoteUrls: true
-    profile.httpUserAgent: components.system.getUserAgent()
+    settings.localStorageEnabled: true
+    settings.webGLEnabled: true
+    settings.accelerated2dCanvasEnabled: true
+    settings.autoLoadIconsForPage: false
     url: mainWindow.webUrl
     focus: true
     property string currentHoveredUrl: ""
@@ -206,11 +221,6 @@ KonvergoWindow
       console.log("Request fullscreen: " + request.toggleOn)
       mainWindow.setFullScreen(request.toggleOn)
       request.accept()
-    }
-
-    onJavaScriptConsoleMessage:
-    {
-      components.system.info(message)
     }
 
     onCertificateError:

@@ -6,7 +6,7 @@ set(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${VERSION_NANO})
 
 if(APPLE)
-  set(CPACK_SYSTEM_NAME "macosx-x86_64")
+  set(CPACK_SYSTEM_NAME "macosx-arm64")
 elseif(WIN32)
   include(FetchDependencies)
   set(CPACK_SYSTEM_NAME ${ARCHSTR})

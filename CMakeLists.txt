@@ -1,11 +1,23 @@
 cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
 
+# This project ships a native Apple Silicon build on macOS.  Set these before
+# project() so CMake's compiler checks and every target use arm64 from the
+# beginning; this intentionally does not produce an x86_64 or Universal binary.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+  set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "macOS target architecture" FORCE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum Apple Silicon macOS version" FORCE)
+endif()
+
 # use a toolchain file if any for Embedded
 if (EXISTS "${CMAKE_SOURCE_DIR}/toolchain.cmake")
   set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/toolchain.cmake")
 endif()
 
 project(JellyfinMediaPlayer CXX C)
+
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+  message(FATAL_ERROR "The macOS build must target native Apple Silicon arm64 only")
+endif()
 
 # we want this to be able to run clang-tidy
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "" FORCE)

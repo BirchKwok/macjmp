@@ -5,10 +5,15 @@
 #include <QGuiApplication>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonObject>
-#include <QNetworkRequest>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
+#include <QMimeDatabase>
+#include <QUrl>
+
+#include "qhttpserver.hpp"
+#include "qhttpserverrequest.hpp"
+#include "qhttpserverresponse.hpp"
 
 #include "input/InputComponent.h"
 #include "SystemComponent.h"
@@ -22,6 +27,8 @@
 #include "utils/Utils.h"
 
 #define MOUSE_TIMEOUT 5 * 1000
+#define WEB_CLIENT_PORT_FIRST 18291
+#define WEB_CLIENT_PORT_LAST 18300
 
 #define KONVERGO_PRODUCTID_DEFAULT  3
 #define KONVERGO_PRODUCTID_OPENELEC 4
@@ -39,13 +46,14 @@ QMap<SystemComponent::PlatformType, QString> g_platformTypeNames = { \
 QMap<SystemComponent::PlatformArch, QString> g_platformArchNames = {
   { SystemComponent::platformArchX86_32, "i386" },
   { SystemComponent::platformArchX86_64, "x86_64" },
+  { SystemComponent::platformArchArm64, "arm64" },
   { SystemComponent::platformArchRpi2, "rpi2" },
   { SystemComponent::platformArchUnknown, "unknown" }
 };
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-SystemComponent::SystemComponent(QObject* parent) : ComponentBase(parent), m_platformType(platformTypeUnknown), m_platformArch(platformArchUnknown), m_doLogMessages(false), m_cursorVisible(true), m_scale(1)
+SystemComponent::SystemComponent(QObject* parent) : ComponentBase(parent), m_platformType(platformTypeUnknown), m_platformArch(platformArchUnknown), m_doLogMessages(false), m_cursorVisible(true), m_scale(1), m_webClientServer(nullptr), m_webClientPort(0)
 {
   m_mouseOutTimer = new QTimer(this);
   m_mouseOutTimer->setSingleShot(true);
@@ -69,6 +77,8 @@ SystemComponent::SystemComponent(QObject* parent) : ComponentBase(parent), m_pla
   m_platformArch = platformArchX86_32;
 #elif defined(Q_PROCESSOR_X86_64)
   m_platformArch = platformArchX86_64;
+#elif defined(Q_PROCESSOR_ARM_64)
+  m_platformArch = platformArchArm64;
 #endif
 
   connect(SettingsComponent::Get().getSection(SETTINGS_SECTION_AUDIO), &SettingsSection::valuesUpdated, [=]()
@@ -82,6 +92,11 @@ bool SystemComponent::componentInitialize()
 {
   QDir().mkpath(Paths::dataDir("scripts"));
   QDir().mkpath(Paths::dataDir("sounds"));
+
+  if (!startWebClientServer())
+  {
+    QLOG_WARN() << "Bundled web client HTTP server unavailable; using file fallback";
+  }
 
   // Hide mouse pointer on any keyboard input
   connect(&InputComponent::Get(), &InputComponent::receivedInput, [=]() { setCursorVisibility(false); });
@@ -328,41 +343,121 @@ QString SystemComponent::getNativeShellScript()
   auto nativeshellString = QTextStream(&file).readAll();
   QJsonObject clientData;
   clientData.insert("deviceName", QJsonValue::fromVariant(SettingsComponent::Get().getClientName()));
-  clientData.insert("scriptPath", QJsonValue::fromVariant("file:///" + path));
+  auto scriptPath = webClientUrl("extension/");
+  if (scriptPath.isEmpty())
+    scriptPath = QUrl::fromLocalFile(path).toString() + "/";
+  clientData.insert("scriptPath", QJsonValue::fromVariant(scriptPath));
   clientData.insert("mode", QJsonValue::fromVariant(SettingsComponent::Get().value(SETTINGS_SECTION_MAIN, "layout").toString()));
   nativeshellString.replace("@@data@@", QJsonDocument(clientData).toJson(QJsonDocument::Compact).toBase64());
   return nativeshellString;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-void SystemComponent::checkForUpdates()
+bool SystemComponent::startWebClientServer()
 {
-  if (SettingsComponent::Get().value(SETTINGS_SECTION_MAIN, "checkForUpdates").toBool()) {
-#if !defined(Q_OS_WIN) && !defined(Q_OS_MAC)
-    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
-    QString checkUrl = "https://github.com/jellyfin/jellyfin-media-player/releases/latest";
-    QUrl qCheckUrl = QUrl(checkUrl);
-    QLOG_DEBUG() << QString("Checking URL for updates: %1").arg(checkUrl);
-    QNetworkRequest req(qCheckUrl);
+  QFileInfo clientIndex(Paths::webClientPath("desktop"));
+  QDir root = clientIndex.absoluteDir();
+  if (!clientIndex.isFile() || !root.cdUp())
+    return false;
 
-    connect(manager, &QNetworkAccessManager::finished, this, &SystemComponent::updateInfoHandler);
-    manager->get(req);
-#else
-    emit updateInfoEmitted("SSL_UNAVAILABLE");
-#endif
+  m_webClientRoot = root.canonicalPath();
+  if (m_webClientRoot.isEmpty())
+    return false;
+
+  m_webClientServer = new qhttp::server::QHttpServer(this);
+  connect(m_webClientServer, &qhttp::server::QHttpServer::newRequest,
+          this, &SystemComponent::handleWebClientRequest);
+
+  for (quint16 port = WEB_CLIENT_PORT_FIRST; port <= WEB_CLIENT_PORT_LAST; ++port)
+  {
+    if (m_webClientServer->listen(QHostAddress::LocalHost, port))
+    {
+      m_webClientPort = port;
+      QLOG_INFO() << "Bundled web client listening on" << webClientUrl(QString());
+      return true;
+    }
   }
+
+  delete m_webClientServer;
+  m_webClientServer = nullptr;
+  return false;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
-void SystemComponent::updateInfoHandler(QNetworkReply* reply)
+QString SystemComponent::webClientUrl(const QString& relativePath) const
 {
-  if (reply->error() == QNetworkReply::NoError) {
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    if(statusCode == 302) {
-      QUrl redirectUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-      emit updateInfoEmitted(redirectUrl.toString());
-    }
+  if (!m_webClientServer || !m_webClientServer->isListening() || !m_webClientPort)
+    return QString();
+
+  QString path = relativePath;
+  while (path.startsWith('/'))
+    path.remove(0, 1);
+
+  return QString("http://127.0.0.1:%1/%2").arg(m_webClientPort).arg(path);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+void SystemComponent::handleWebClientRequest(qhttp::server::QHttpRequest* request,
+                                             qhttp::server::QHttpResponse* response)
+{
+  if (request->method() != qhttp::EHTTP_GET && request->method() != qhttp::EHTTP_HEAD)
+  {
+    response->setStatusCode(qhttp::ESTATUS_METHOD_NOT_ALLOWED);
+    response->end();
+    return;
   }
+
+  QString path = QUrl::fromPercentEncoding(request->url().path().toUtf8());
+  while (path.startsWith('/'))
+    path.remove(0, 1);
+  if (path.isEmpty())
+    path = "desktop/index.html";
+
+  path = QDir::cleanPath(path);
+  if (path == ".." || path.startsWith("../"))
+  {
+    response->setStatusCode(qhttp::ESTATUS_FORBIDDEN);
+    response->end();
+    return;
+  }
+
+  QFileInfo fileInfo(QDir(m_webClientRoot).filePath(path));
+  const QString canonicalPath = fileInfo.canonicalFilePath();
+  const QString rootPrefix = m_webClientRoot + QDir::separator();
+  if (!fileInfo.isFile() || !canonicalPath.startsWith(rootPrefix))
+  {
+    response->setStatusCode(qhttp::ESTATUS_NOT_FOUND);
+    response->end();
+    return;
+  }
+
+  QFile file(canonicalPath);
+  if (!file.open(QIODevice::ReadOnly))
+  {
+    response->setStatusCode(qhttp::ESTATUS_NOT_FOUND);
+    response->end();
+    return;
+  }
+
+  const QByteArray data = file.readAll();
+  const QByteArray mimeType = QMimeDatabase().mimeTypeForFile(fileInfo).name().toUtf8();
+  response->setStatusCode(qhttp::ESTATUS_OK);
+  response->addHeader("content-type", mimeType);
+  response->addHeader("content-length", QByteArray::number(data.size()));
+  response->addHeader("x-content-type-options", "nosniff");
+  response->addHeader("service-worker-allowed", "/");
+
+  const QString fileName = fileInfo.fileName().toLower();
+  if (path.startsWith("extension/") || fileName == "index.html" ||
+      fileName.contains("serviceworker") || fileName.endsWith(".webmanifest"))
+    response->addHeader("cache-control", "no-cache");
+  else
+    response->addHeader("cache-control", "public, max-age=31536000, immutable");
+
+  if (request->method() == qhttp::EHTTP_HEAD)
+    response->end();
+  else
+    response->end(data);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

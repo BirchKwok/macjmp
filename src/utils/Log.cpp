@@ -80,7 +80,7 @@ static QsLogging::Level logLevelFromString(const QString& str)
   if (str == "fatal")     return QsLogging::Level::FatalLevel;
   if (str == "disable")   return QsLogging::Level::OffLevel;
   // if not valid, use default
-  return QsLogging::Level::DebugLevel;
+  return QsLogging::Level::InfoLevel;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -108,7 +108,7 @@ void Log::Init()
     MaxOldLogCount(9));
 
   Logger::instance().addDestination(dest);
-  Logger::instance().setLoggingLevel(DebugLevel);
+  Logger::instance().setLoggingLevel(InfoLevel);
   Logger::instance().setProcessingCallback(Log::CensorAuthTokens);
 
   qInstallMessageHandler(qtMessageOutput);

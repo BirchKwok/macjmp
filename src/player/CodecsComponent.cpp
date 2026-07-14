@@ -14,6 +14,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QOperatingSystemVersion>
+#include <QSysInfo>
 #include <QCryptographicHash>
 #include <QTemporaryDir>
 
@@ -97,7 +98,7 @@ static QProcess* g_eaeProcess;
 static QString getBuildType()
 {
 #ifdef Q_OS_MAC
-  return "darwin-x86_64";
+  return "darwin-" + QSysInfo::buildCpuArchitecture();
 #elif defined(TARGET_RPI)
   return "openelec-armv7";
 #else
@@ -110,7 +111,7 @@ static QString getBuildType()
 static QString getEAEBuildType()
 {
 #if defined(Q_OS_MAC)
-  return "darwin-x86_64";
+  return "darwin-" + QSysInfo::buildCpuArchitecture();
 #elif defined(Q_OS_WIN)
   return sizeof(void *) > 4 ? "windows-x86_64" : "windows-i386";
 #elif defined(TARGET_RPI)

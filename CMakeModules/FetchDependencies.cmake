@@ -4,7 +4,7 @@ set(DEPENDENCY_CACHE_DIR ${CMAKE_BINARY_DIR}/dependencies CACHE PATH "Cache down
 set(DEPENDENCY_UNTAR_DIR ${CMAKE_BINARY_DIR}/dependencies CACHE PATH "Where to untar deps")
 
 if(APPLE)
-  set(ARCHSTR "darwin-x86_64")
+  set(ARCHSTR "darwin-arm64")
 elseif(WIN32)
   set(OS "windows-i386")
   if (CMAKE_SIZEOF_VOID_P MATCHES 8)

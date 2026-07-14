@@ -82,10 +82,6 @@ set(MACOSX_BUNDLE_BUNDLE_VERSION ${VERSION_STRING})
 set(MACOSX_BUNDLE_GUI_IDENTIFIER tv.terminus.player)
 
 if(APPLE)
-  if(HAVE_UPDATER)
-    add_resources(TARGET ${MAIN_TARGET} SOURCES ${UPDATER_PATH} DEST ${INSTALL_RESOURCE_DIR})
-  endif(HAVE_UPDATER)
-
   set_source_files_properties(
     input/apple/HIDRemote/HIDRemote.m
     PROPERTIES COMPILE_FLAGS -fno-objc-arc

@@ -1,7 +1,5 @@
 set(INSTALL_BIN_DIR .)
 set(INSTALL_RESOURCE_DIR .)
-set(HAVE_UPDATER 1)
-
 find_library(WINMM winmm)
 find_library(IMMLIB imm32)
 find_library(VERLIB version)

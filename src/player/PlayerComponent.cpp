@@ -234,7 +234,7 @@ bool PlayerComponent::componentInitialize()
         codecInfo += "(enc)";
     }
   }
-  QLOG_INFO() << "Present codecs:" << qPrintable(codecInfo);
+  QLOG_DEBUG() << "Present codecs:" << qPrintable(codecInfo);
 
   connect(this, &PlayerComponent::onMpvEvents, this, &PlayerComponent::handleMpvEvents, Qt::QueuedConnection);
   emit onMpvEvents();
@@ -311,6 +311,10 @@ void PlayerComponent::queueMedia(const QString& url, const QVariantMap& options,
   QVariantList command;
   command << "loadfile" << qurl.toString(QUrl::FullyEncoded);
   command << "append-play"; // if nothing is playing, play it now, otherwise just enqueue it
+  // mpv 0.38 added an insertion-index argument before the per-file options.
+  // -1 keeps append-play semantics and lets the following node map remain the
+  // fourth argument expected by current native Apple Silicon builds.
+  command << -1;
 
   QVariantMap extraArgs;
 
@@ -1577,4 +1581,3 @@ QString PlayerComponent::videoInformation() const
   info.flush();
   return infoStr;
 }
-

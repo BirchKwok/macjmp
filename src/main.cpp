@@ -2,8 +2,12 @@
 
 #include <QGuiApplication>
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QIcon>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QtQml>
 #include <QtWebEngine/qtwebengineglobal.h>
 #include <QErrorMessage>
@@ -20,14 +24,12 @@
 #include "settings/SettingsComponent.h"
 #include "settings/SettingsSection.h"
 #include "ui/KonvergoWindow.h"
-#include "ui/KonvergoWindow.h"
 #include "Globals.h"
 #include "ui/ErrorMessage.h"
 #include "UniqueApplication.h"
 #include "utils/Log.h"
 
 #include "patch.h"
-#include <sys/stat.h>
 
 #ifdef Q_OS_MAC
 #include "PFMoveApplication.h"
@@ -85,30 +87,57 @@ void ShowLicenseInfo()
 /////////////////////////////////////////////////////////////////////////////////////////
 QStringList g_qtFlags = {
   "--disable-web-security",
-  "--enable-gpu-rasterization"
+  "--enable-gpu-rasterization",
+  "--enable-zero-copy"
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////
 #if defined(Q_OS_MAC)
-int patch() {
-  struct stat buffer;
-  const char *dirs[] = {"/usr/local/etc", "/usr/local/etc/fonts", "/usr/local/etc/fonts/conf.d"};
-  for (int i = 0; i != sizeof(dirs) / sizeof(char *); ++i) {
-    const char *path = dirs[i];
-    if (stat(path, &buffer) == -1) {
-      mkdir(path, 0700);
-    }
+bool prepareFontconfig()
+{
+  const QString sourcePrefix = QStringLiteral("/usr/local/etc/fonts/");
+  const QString fontconfigRoot =
+      QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+      + QStringLiteral("/fontconfig");
+
+  if (!QDir().mkpath(fontconfigRoot + QStringLiteral("/conf.d")))
+  {
+    fprintf(stderr, "Unable to create Fontconfig directory: %s\n",
+            qPrintable(fontconfigRoot));
+    return false;
   }
-  for (int i = 0; i < sizeof(PATCHES) / sizeof(char *); i += 2) {
-    const char *path = PATCHES[i];
+
+  for (size_t i = 0; i < sizeof(PATCHES) / sizeof(PATCHES[0]); i += 2)
+  {
+    const QString sourcePath = QString::fromUtf8(PATCHES[i]);
     const char *content = PATCHES[i + 1];
-    if (stat(path, &buffer) == 0) {
-      continue;
+
+    if (!sourcePath.startsWith(sourcePrefix))
+    {
+      fprintf(stderr, "Unexpected embedded Fontconfig path: %s\n",
+              qPrintable(sourcePath));
+      return false;
     }
-    FILE *f = fopen(path, "wb");
-    fwrite(content, sizeof(char), strlen(content), f);
-    fclose(f);
+
+    const QString targetPath =
+        QDir(fontconfigRoot).filePath(sourcePath.mid(sourcePrefix.size()));
+    if (!QDir().mkpath(QFileInfo(targetPath).absolutePath()))
+      return false;
+
+    QFile target(targetPath);
+    if (!target.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    {
+      fprintf(stderr, "Unable to write Fontconfig file: %s\n",
+              qPrintable(targetPath));
+      return false;
+    }
+    if (target.write(content, static_cast<qint64>(strlen(content))) == -1)
+      return false;
   }
+
+  qputenv("FONTCONFIG_PATH", fontconfigRoot.toUtf8());
+  qputenv("FONTCONFIG_FILE", "fonts.conf");
+  return true;
 }
 #endif
 
@@ -117,8 +146,11 @@ int main(int argc, char *argv[])
 {
   try
   {
+    preinitQt();
+
 #if defined(Q_OS_MAC)
-    patch();
+    if (!prepareFontconfig())
+      return EXIT_FAILURE;
 #endif
 
     QCommandLineParser parser;
@@ -143,9 +175,6 @@ int main(int argc, char *argv[])
     parser.addOption(scaleOption);
     parser.addOption(devOption);
 
-    char **newArgv = appendCommandLineArguments(argc, argv, g_qtFlags);
-    int newArgc = argc + g_qtFlags.size();
-
     // Qt calls setlocale(LC_ALL, "") in a bunch of places, which breaks
     // float/string processing in mpv and ffmpeg.
 #ifdef Q_OS_UNIX
@@ -153,25 +182,29 @@ int main(int argc, char *argv[])
     qputenv("LC_NUMERIC", "C");
 #endif
 
-    preinitQt();
     detectOpenGLEarly();
 
     QStringList arguments;
     for (int i = 0; i < argc; i++)
       arguments << QString::fromLatin1(argv[i]);
 
+    if (!parser.parse(arguments))
     {
-      // This is kinda dumb. But in order for the QCommandLineParser
-      // to work properly we need to init if before we call process
-      // but we don't want to do that for the main application since
-      // we need to set the scale factor before we do that. So it becomes
-      // a small chicken-or-egg problem, which we "solve" by making
-      // this temporary console app.
-      //
-      QCoreApplication core(newArgc, newArgv);
+      QTextStream(stderr) << parser.errorText() << "\n\n" << parser.helpText();
+      return EXIT_FAILURE;
+    }
 
-      // Now parse the command line.
-      parser.process(arguments);
+    if (parser.isSet("help"))
+    {
+      QTextStream(stdout) << parser.helpText();
+      return EXIT_SUCCESS;
+    }
+
+    if (parser.isSet("version"))
+    {
+      QTextStream(stdout) << QCoreApplication::applicationName() << " "
+                          << QCoreApplication::applicationVersion() << "\n";
+      return EXIT_SUCCESS;
     }
 
     if (parser.isSet("licenses"))
@@ -185,6 +218,15 @@ int main(int argc, char *argv[])
       QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     else if (scale != "none")
       qputenv("QT_SCALE_FACTOR", scale.toUtf8());
+
+    // Qt WebEngine must be initialized before the first application object.
+    // Doing this late disables shared GPU contexts and makes the web UI fall
+    // back to slower rendering paths.
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QtWebEngine::initialize();
+
+    char **newArgv = appendCommandLineArguments(argc, argv, g_qtFlags);
+    int newArgc = argc + g_qtFlags.size();
 
     QApplication app(newArgc, newArgv);
     app.setApplicationName("Terminus Player");
@@ -227,8 +269,6 @@ int main(int argc, char *argv[])
     ComponentManager::Get().initialize();
 
     SettingsComponent::Get().setCommandLineValues(parser.optionNames());
-
-    QtWebEngine::initialize();
 
     // load QtWebChannel so that we can register our components with it.
     QQmlApplicationEngine *engine = Globals::Engine();

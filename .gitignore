@@ -10,6 +10,7 @@ QtCreatorDeployment.txt
 vagrant/ubuntu-x86_64/.vagrant
 vagrant/windows-x86_64/.vagrant
 build-*
+!scripts/build-macos-arm64.sh
 cmake-build-*
 *.pyc
 conaninfo.txt

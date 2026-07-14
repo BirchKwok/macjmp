@@ -17,6 +17,7 @@
 #include "Version.h"
 
 #define OLDEST_PREVIOUS_VERSION_KEY "oldestPreviousVersion"
+#define PERFORMANCE_SETTINGS_MIGRATION_KEY "performanceSettingsMigrationV1"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 SettingsComponent::SettingsComponent(QObject *parent) : ComponentBase(parent), m_settingsVersion(-1)
@@ -676,6 +677,21 @@ bool SettingsComponent::componentInitialize()
 
   load();
 
+  // Older installations persisted the former debug default and the removed
+  // update-check option. Migrate them once so upgrades receive the quieter
+  // logging path without discarding any other user settings.
+  SettingsSection* mainSettings = getSection(SETTINGS_SECTION_MAIN);
+  QVariantMap values = mainSettings->allValues();
+  if (!values.value(PERFORMANCE_SETTINGS_MIGRATION_KEY).toBool())
+  {
+    values.remove("checkForUpdates");
+    if (values.value("logLevel").toString() == "debug")
+      values["logLevel"] = "info";
+    values[PERFORMANCE_SETTINGS_MIGRATION_KEY] = true;
+    mainSettings->setValues(values);
+    saveSettings();
+  }
+
   // add our AudioSettingsController that will inspect audio settings and react.
   // then run the signal the first time to make sure that we set the proper visibility
   // on the items from the start.
@@ -724,8 +740,9 @@ QString SettingsComponent::getWebClientUrl(bool desktop)
 
   if (url == "bundled")
   {
-    auto path = Paths::webClientPath("desktop");
-    url = "file:///" + path;
+    url = SystemComponent::Get().webClientUrl("desktop/index.html");
+    if (url.isEmpty())
+      url = QUrl::fromLocalFile(Paths::webClientPath("desktop")).toString();
   }
 
   QLOG_DEBUG() << "Using web-client URL: " << url;
@@ -785,4 +802,3 @@ void SettingsComponent::setCommandLineValues(const QStringList& values)
       setValue(SETTINGS_SECTION_MAIN, "layout", "tv");
   }
 }
-

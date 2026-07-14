@@ -1,5 +1,147 @@
 const viewdata = JSON.parse(window.atob("@@data@@"));
 
+// Jellyfin may start more than one bitrate detection at the same time. When
+// the server is behind a proxy, duplicate BitrateTest downloads can serialize
+// and leave playback/navigation waiting for a request that never reaches the
+// web client's nominal timeout. Coalesce identical tests and briefly reuse
+// their completed response while preserving the measured network speed.
+let fetchDelegate = window.fetch.bind(window);
+const bitrateTestCache = new Map();
+const bitrateTestRequests = new Map();
+const bitrateTestCacheLifetime = 60 * 1000;
+
+function bitrateTestResponse(snapshot) {
+    return new Response(snapshot.body.slice(0), {
+        status: snapshot.status,
+        statusText: snapshot.statusText,
+        headers: snapshot.headers
+    });
+}
+
+function guardedFetch(input, init) {
+    const url = typeof input === 'string' ? input : input && input.url;
+    if (!url || !/\/Playback\/BitrateTest(?:\?|$)/.test(url)) {
+        return fetchDelegate(input, init);
+    }
+
+    const cached = bitrateTestCache.get(url);
+    if (cached && Date.now() - cached.completedAt < bitrateTestCacheLifetime) {
+        return Promise.resolve(bitrateTestResponse(cached));
+    }
+
+    let request = bitrateTestRequests.get(url);
+    if (!request) {
+        request = fetchDelegate(input, init).then(async response => {
+            const snapshot = {
+                body: await response.arrayBuffer(),
+                status: response.status,
+                statusText: response.statusText,
+                headers: Array.from(response.headers.entries()),
+                completedAt: Date.now()
+            };
+            bitrateTestCache.set(url, snapshot);
+            return snapshot;
+        }).finally(() => bitrateTestRequests.delete(url));
+        bitrateTestRequests.set(url, request);
+    }
+
+    return request.then(bitrateTestResponse);
+}
+
+window.fetch = guardedFetch;
+
+// The web client can start two complete detectBitrate() chains during startup.
+// They use separate request contexts, so coalescing window.fetch alone does not
+// cover both of them. Patch the active ApiClient as soon as it is published and
+// share one result across callers. The web client already stores the result for
+// an hour; this short cache also covers callers that explicitly force a retest.
+const bitrateDetectionCacheLifetime = 60 * 1000;
+const bitrateDetectionTimeout = 6 * 1000;
+const fallbackBitrate = 10 * 1000 * 1000;
+
+function patchBitrateDetection(apiClient) {
+    if (!apiClient || apiClient.__nativeBitrateDetectionPatched ||
+        typeof apiClient.detectBitrate !== 'function') {
+        return;
+    }
+
+    const detectBitrate = apiClient.detectBitrate.bind(apiClient);
+    let request;
+    let result;
+    let completedAt = 0;
+
+    apiClient.detectBitrate = function(force) {
+        if (result !== undefined &&
+            Date.now() - completedAt < bitrateDetectionCacheLifetime) {
+            return Promise.resolve(result);
+        }
+
+        if (!request) {
+            const detection = Promise.resolve(detectBitrate(force));
+            const boundedDetection = new Promise((resolve, reject) => {
+                let settled = false;
+                const timer = window.setTimeout(() => {
+                    if (!settled) {
+                        settled = true;
+                        resolve(apiClient.lastDetectedBitrate || fallbackBitrate);
+                    }
+                }, bitrateDetectionTimeout);
+
+                detection.then(value => {
+                    if (!settled) {
+                        settled = true;
+                        window.clearTimeout(timer);
+                        resolve(value);
+                    }
+                }, error => {
+                    if (!settled) {
+                        settled = true;
+                        window.clearTimeout(timer);
+                        reject(error);
+                    }
+                });
+            });
+
+            request = boundedDetection.then(value => {
+                result = value;
+                completedAt = Date.now();
+                return value;
+            }).finally(() => {
+                request = null;
+            });
+        }
+
+        return request;
+    };
+
+    Object.defineProperty(apiClient, '__nativeBitrateDetectionPatched', {
+        value: true
+    });
+}
+
+function installPerformanceGuards() {
+    // The web client's fetch polyfill and ApiClient global are installed after
+    // DocumentCreation, so take the final fetch implementation as our delegate
+    // and patch the client once it exists.
+    if (window.fetch !== guardedFetch) {
+        fetchDelegate = window.fetch.bind(window);
+        window.fetch = guardedFetch;
+    }
+
+    patchBitrateDetection(window.ApiClient);
+    return !!(window.ApiClient &&
+        window.ApiClient.__nativeBitrateDetectionPatched);
+}
+
+document.addEventListener('DOMContentLoaded', installPerformanceGuards);
+window.addEventListener('load', installPerformanceGuards);
+
+const performanceGuardTimer = window.setInterval(() => {
+    if (installPerformanceGuards()) {
+        window.clearInterval(performanceGuardTimer);
+    }
+}, 250);
+
 const features = [
     "filedownload",
     "displaylanguage",
@@ -20,8 +162,7 @@ const features = [
 const plugins = [
     'mpvVideoPlayer',
     'mpvAudioPlayer',
-    'jmpInputPlugin',
-    'jmpUpdatePlugin'
+    'jmpInputPlugin'
 ];
 
 function loadScript(src) {

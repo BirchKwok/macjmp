@@ -3,10 +3,15 @@
 
 #include "ComponentManager.h"
 #include <QTimer>
-#include <QNetworkReply>
 #include "utils/Utils.h"
 #include "Paths.h"
 #include "Names.h"
+
+namespace qhttp { namespace server {
+class QHttpServer;
+class QHttpRequest;
+class QHttpResponse;
+}}
 
 // System modifiers
 #define SYSTEM_MODIFIER_OPENELEC "OpenELEC"
@@ -47,7 +52,7 @@ public:
 
   Q_INVOKABLE QString getNativeShellScript();
 
-  Q_INVOKABLE void checkForUpdates();
+  QString webClientUrl(const QString& relativePath) const;
 
   // called by the web-client when everything is properly inited
   Q_INVOKABLE void hello(const QString& version);
@@ -55,8 +60,6 @@ public:
   Q_INVOKABLE QString getCapabilitiesString();
   Q_SIGNAL void capabilitiesChanged(const QString& capabilities);
   Q_SIGNAL void userInfoChanged();
-
-  Q_SIGNAL void updateInfoEmitted(QString url);
 
   // possible os types type enum
   enum PlatformType
@@ -74,6 +77,7 @@ public:
     platformArchUnknown,
     platformArchX86_32,
     platformArchX86_64,
+    platformArchArm64,
     platformArchRpi2
   };
 
@@ -93,9 +97,6 @@ public:
 
   void updateScale(qreal scale);
 
-private Q_SLOTS:
-  void updateInfoHandler(QNetworkReply* reply);
-
 signals:
   void hostMessage(const QString& message);
   void settingsMessage(const QString& setting, const QString& value);
@@ -109,6 +110,10 @@ private:
   bool platformIsMac() const { return m_platformType == platformTypeOsx; }
   bool platformIsLinux() const { return m_platformType == platformTypeLinux; }
 
+  bool startWebClientServer();
+  void handleWebClientRequest(qhttp::server::QHttpRequest* request,
+                              qhttp::server::QHttpResponse* response);
+
   QTimer* m_mouseOutTimer;
   PlatformType m_platformType;
   PlatformArch m_platformArch;
@@ -117,6 +122,9 @@ private:
   QString m_webClientVersion;
   bool m_cursorVisible;
   qreal m_scale;
+  qhttp::server::QHttpServer* m_webClientServer;
+  quint16 m_webClientPort;
+  QString m_webClientRoot;
 
 };
 
