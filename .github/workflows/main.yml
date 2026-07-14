@@ -10,7 +10,7 @@ jobs:
     name: Swift prototype
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build for Apple Silicon
         run: swift build --package-path swift-native -c release --arch arm64
       - name: Validate property list
@@ -20,7 +20,7 @@ jobs:
     name: macOS-only source guard
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Verify build scripts
         run: |
           bash -n scripts/build-macos-arm64.sh
